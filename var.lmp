@@ -1,0 +1,65 @@
+# number of particles in each of the directions
+variable          Lx   equal 2.0
+variable          nx   equal 40
+variable          ny   equal ${nx}
+if ${nd}==3 then &
+"variable nz equal ${nx}"
+
+# size of the domain
+variable          Ly   equal  ${Lx}
+#if ${ndim}==3 then &
+#"variable         Lz   equal ${Lx}"
+
+variable          dx   equal  1.0/${nx}
+
+# density of gas phase
+variable          sph_rho_a equal 1.0
+# density of droplet
+variable          sph_rho_wt equal 0.01
+variable          sph_rho_wl equal ${sph_rho_a}
+
+# sound speed
+variable          sph_c_wt equal 200/sqrt(${sph_rho_wt})
+variable          sph_c_a equal 200/sqrt(${sph_rho_a})
+variable          sph_c_wl equal ${sph_c_a}
+
+# viscosity
+variable          sph_eta_wt equal 0.069395
+variable          sph_eta_a equal 1.0
+variable          sph_eta_wl equal ${sph_eta_a}
+
+variable          gamma_wt equal 1.0
+variable          gamma_a equal 1.0
+variable          gamma_wl equal ${gamma_a}
+
+variable          rbackground equal 0.0
+
+variable          h equal 3.0*${dx}
+#var.lmp
+# mass of droplet particle
+variable          sph_mass_wt equal 1.0
+
+# mass of gas particle
+variable          sph_mass_a equal 1.5
+variable          sph_mass_wl equal ${sph_mass_a}
+
+# surface tension
+variable           alpha    equal 150
+variable           alpha_awt equal ${alpha}
+variable           alpha_awl equal ${alpha}
+variable           alpha_wtwl equal 1.5*${alpha}
+
+
+variable          cv_wt       equal 1.0
+variable          cv_a       equal 0.04
+variable          cv_wl      equal ${cv_a}
+
+
+# add an uplift force to the gas particles
+#variable          gy    equal 3.60e+05
+
+# type of the gas particle
+variable          air_type equal 1
+# type of the droplet particle
+variable          water_type equal 2
+variable          wall_type equal 3
