@@ -1,0 +1,141 @@
+echo            both
+units           si
+
+atom_style      meso
+variable        nd equal 2
+dimension       ${nd}
+boundary        f f p
+include         var.lmp
+
+# create simulation box
+
+region box block -0.050e-3 2.044e-3 -0.05e-3 1.044e-3 -1.0e-6 1.0e-6 units box
+create_box 3 box
+
+# create fluid particles
+
+region fluid block 0.0001e-3 0.5e-3 0.0001e-3 0.70e-3 EDGE EDGE side in units box
+lattice sq 0.025e-3
+create_atoms 1 region fluid
+
+
+# create bottom, left, and right wall
+
+region walls block 0.0001e-3 1.999e-3 0.0001e-3 EDGE EDGE EDGE side out units box
+lattice sq2 0.015e-3
+create_atoms 2 region walls
+
+# create air particles
+
+region air block 0.5e-3 EDGE 0.0001e-3 0.70e-3 EDGE EDGE side in units box
+lattice sq 0.025e-3
+create_atoms 3 region air
+
+
+#create simulation box
+#variable       RLz equal 1.0e-3
+#variable       LLz equal -1.0e-3
+#region         box block 0.0 ${Lx}  0.0 ${Ly}  ${LLz} ${RLz} units box
+
+
+#create box with two types of particles (water, air)
+#create_box      3 box
+
+
+#create air particles
+#variable       lshift equal 0.5
+#lattice        sq ${dx} origin ${lshift} ${lshift} 0
+#create_atoms   ${air_type} region box
+
+
+#create walls on the top and on the bottom
+#variable     x1 equal 3*${dx}
+#variable     x2  equal ${Ly}-3.0*${dx}
+#variable     y1 equal 3*${dx}
+#variable     y2  equal ${Ly}-3.0*${dx}
+#region	  b_walls block EDGE EDGE 0 ${y1} EDGE EDGE units box
+#region	  t_walls block EDGE EDGE ${y2} ${Ly} EDGE EDGE units box
+#region	  r_walls block 0 ${x1} EDGE EDGE EDGE EDGE units box
+#region	  l_walls block ${x2} ${Lx} EDGE EDGE EDGE EDGE units box
+#lattice sq ${dx}
+#create_atoms ${wall_type} region box
+
+
+#create water particles
+#variable     wxs equal ${x1}+${dx}
+#variable     wxe equal ${Lx}/6
+#variable     wys equal ${y1}+${dx}
+#variable     wye equal ${Ly}/3
+#region	 water block ${wxs} ${wxe} ${wys} ${wye} EDGE EDGE units box
+#lattice sq ${dx}
+#create_atoms ${water_type}  region box
+#delete_atoms overlap ${dx} all all
+
+
+fix         integrate_fix_full all meso
+fix          gfix all gravity -9.81 vector 0 1 0
+#fix integrate_fix_stationary ${wall_type} meso/stationary
+
+
+pair_style  hybrid/overlay sph/rhosum/multiphase 1 sph/colorgradient 1 &
+sph/taitwater/multiphase sph/surfacetension 
+
+pair_coeff         * * sph/rhosum/multiphase   ${h}
+pair_coeff         ${water_type} ${water_type} sph/colorgradient ${h} 0
+pair_coeff         ${air_type} ${water_type} sph/colorgradient ${h} ${alpha_awt}
+pair_coeff         ${air_type} ${water_type} sph/colorgradient ${h} 0
+pair_coeff         ${water_type} ${wall_type} sph/colorgradient ${h} ${alpha_wtwl}
+pair_coeff         ${air_type} ${wall_type} sph/colorgradient ${h} ${alpha_awl}
+pair_coeff         ${wall_type} ${wall_type} sph/colorgradient ${h} 0
+
+variable           sph_eta_awt equal 2*${sph_eta_a}*${sph_eta_wt}/(${sph_eta_wt}+${sph_eta_a})
+variable           sph_eta_awl equal 2*${sph_eta_a}*${sph_eta_wl}/(${sph_eta_a}+${sph_eta_wl})
+variable           sph_eta_wtwl equal 2*${sph_eta_wt}*${sph_eta_wl}/(${sph_eta_wt}+${sph_eta_wl})
+
+
+pair_coeff         ${air_type} ${water_type} sph/taitwater/multiphase ${sph_rho_a} ${sph_c_a} ${sph_eta_awt} ${gamma_a} ${h} ${rbackground}
+pair_coeff         ${air_type} ${air_type} sph/taitwater/multiphase ${sph_rho_a} ${sph_c_a} ${sph_eta_a} ${gamma_a} ${h} ${rbackground}
+pair_coeff         ${water_type} ${water_type} sph/taitwater/multiphase ${sph_rho_wt} ${sph_c_wt} ${sph_eta_wt} ${gamma_wt} ${h} ${rbackground}
+pair_coeff         ${air_type} ${wall_type} sph/taitwater/multiphase ${sph_rho_a} ${sph_c_a} ${sph_eta_awl} ${gamma_a} ${h} ${rbackground}
+pair_coeff         ${water_type} ${wall_type} sph/taitwater/multiphase ${sph_rho_wt} ${sph_c_wt} ${sph_eta_wtwl} ${gamma_wt} ${h} ${rbackground}
+pair_coeff         ${wall_type} ${wall_type} sph/taitwater/multiphase ${sph_rho_wl} ${sph_c_wl} ${sph_eta_wl} ${gamma_wl} ${h} ${rbackground}
+
+pair_coeff     * * sph/surfacetension ${h}
+
+mass 1 1
+mass 2 1.5
+mass 3 1.5
+
+#set            type ${water_type} mass ${sph_mass_wt}
+#set            type ${air_type} mass ${sph_mass_a}
+#set            type ${wall_type} mass ${sph_mass_wl}
+
+#set            type ${water_type} meso_rho ${sph_rho_wt}
+#set            type ${water_type} meso_rho ${sph_rho_a}
+#set            type ${wall_type} meso_rho ${sph_rho_wl}
+
+
+compute rho_peratom all meso_rho/atom
+compute e_peratom all meso_e/atom
+compute ke_peratom all ke/atom
+compute esph all reduce sum c_e_peratom
+compute ke all ke
+variable etot equal c_ke+c_esph
+
+dump dump_id all custom 100 dump.lammpstrj id type xs ys zs vx vy c_rho_peratom 
+dump_modify      dump_id first yes
+
+thermo_style     custom step c_esph v_etot   
+thermo_modify    norm no
+thermo_modify    lost ignore
+
+thermo           100
+
+
+neighbor         0 bin
+neigh_modify   delay 0 every 1
+timestep         5.0e-3
+run              1000
+
+
+
